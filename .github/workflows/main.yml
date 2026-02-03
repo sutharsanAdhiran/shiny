@@ -10,15 +10,15 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Get the code from your repo
+      # 1. Get the code from your repository
       - name: Checkout Code
         uses: actions/checkout@v4
 
-      # 2. Setup Node.js for Vite
+      # 2. Setup Node.js (Updated to 22 for Vite 7 compatibility)
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '22'
 
       # 3. Build the Vite React Application
       - name: Vite Build
@@ -30,14 +30,14 @@ jobs:
       # 4. Atomic Move and Filename Injection
       - name: Inject Vite Assets into app.py
         run: |
-          # Ensure the target assets folder exists and is clean
+          # Create and clean the target assets folder
           mkdir -p www/assets
           rm -rf www/assets/*
           
           # Move Vite build results from 'react/dist' to 'www'
           cp -r react/dist/* www/
           
-          # Extract the dynamic filenames for the JS and CSS bundles
+          # Extract the dynamic filenames (e.g., index-UNc5jdm-.css)
           JS_FILE=$(ls www/assets/index-*.js | xargs -n 1 basename)
           CSS_FILE=$(ls www/assets/index-*.css | xargs -n 1 basename)
           
@@ -45,6 +45,7 @@ jobs:
           echo "Found CSS Bundle: $CSS_FILE"
           
           # Inject the real filenames into app.py
+          # This replaces the placeholders you added to your Python code
           sed -i "s/REPLACE_ME_JS/$JS_FILE/g" app.py
           sed -i "s/REPLACE_ME_CSS/$CSS_FILE/g" app.py
 
@@ -54,20 +55,20 @@ jobs:
         with:
           python-version: '3.9'
 
-      # 6. Generate Manifest and Deploy
+      # 6. Generate Manifest and Deploy to Posit Connect
       - name: Deploy to Posit Connect
         env:
-          # Use your hardcoded values here for now as we discussed
+          # Replace these with your actual credentials for testing
           CONNECT_SERVER: "https://your-server-url.com"
           CONNECT_API_KEY: "your-api-key-here"
         run: |
           python -m pip install --upgrade pip
           pip install rsconnect-python shiny
           
-          # Generate the manifest.json
+          # Posit Connect requires a manifest.json to understand requirements.txt
           rsconnect write-manifest shiny . --entrypoint app:app
           
-          # Deploy
+          # Deploy command
           rsconnect deploy manifest manifest.json \
             --server $CONNECT_SERVER \
             --api-key $CONNECT_API_KEY \
