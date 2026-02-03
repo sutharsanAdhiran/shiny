@@ -1,25 +1,24 @@
-
-
+from shiny import App, ui
 from pathlib import Path
-from shiny import App, ui, render
 
-static_dir = Path(__file__).parent / "www"
-
-app_ui = ui.page_fluid(
+app_ui = ui.tags.html(
     ui.tags.head(
-        # Disable Bootstrap styles inside iframe
-        ui.tags.style("""
-        body, html { margin:0; padding:0; }
-        .container-fluid { padding:0; margin:0; display:flex; }
-        """)
+        ui.tags.title("My React"),
+        ui.tags.link(rel="icon", href="/vite.svg", type="image/svg+xml"),
+        # PLACEHOLDERS BELOW
+        ui.tags.link(rel="stylesheet", href="assets/REPLACE_ME_CSS"),
+        ui.tags.script(type="module", src="assets/REPLACE_ME_JS"),
     ),
-    ui.tags.iframe(
-        src="index.html",
-        style="width:100%; height:100vh; border:none;"
+    ui.tags.body(
+        ui.div(id="root")  # React mounts here
     )
 )
 
 def server(input, output, session):
     pass
 
-app = App(app_ui, server, static_assets=str(static_dir))
+app = App(
+    app_ui,
+    server,
+    static_assets=Path(__file__).parent / "www"
+)
