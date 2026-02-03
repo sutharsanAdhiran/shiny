@@ -1,74 +1,75 @@
-trigger:
-  - main
+name: Build and Deploy to Posit Connect
 
-pool:
-  vmImage: 'ubuntu-latest'
+on:
+  push:
+    branches:
+      - main
 
-# Link to your Library variables (CONNECT_SERVER, CONNECT_API_KEY)
-variables:
-  - group: PositConnect 
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
 
-stages:
-- stage: BuildAndDeploy
-  displayName: 'Build and Deploy'
-  jobs:
-  - job: DeployJob
     steps:
-    
-    # 1. Setup Node.js for the Vite React Frontend
-    - task: NodeTool@0
-      inputs:
-        versionSpec: '18.x'
-      displayName: 'Install Node.js'
+      # 1. Get the code from your repo
+      - name: Checkout Code
+        uses: actions/checkout@v4
 
-    # 2. Build the Vite React Application
-    - script: |
-        cd react
-        npm install
-        npm run build
-      displayName: 'Vite Build'
+      # 2. Setup Node.js for Vite
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
 
-    # 3. Atomic Move and Filename Injection
-    - script: |
-        # Ensure the target assets folder exists and is clean
-        mkdir -p www/assets
-        rm -rf www/assets/*
-        
-        # Move Vite build results from 'react/dist' to 'www'
-        cp -r react/dist/* www/
-        
-        # Extract the dynamic filenames for the JS and CSS bundles
-        # These look like index-xxxxxxxx.js
-        JS_FILE=$(ls www/assets/index-*.js | xargs -n 1 basename)
-        CSS_FILE=$(ls www/assets/index-*.css | xargs -n 1 basename)
-        
-        echo "Found JS Bundle: $JS_FILE"
-        echo "Found CSS Bundle: $CSS_FILE"
-        
-        # Inject the real filenames into app.py using Linux sed
-        # It replaces REPLACE_ME_JS and REPLACE_ME_CSS
-        sed -i "s/REPLACE_ME_JS/$JS_FILE/g" app.py
-        sed -i "s/REPLACE_ME_CSS/$CSS_FILE/g" app.py
-      displayName: 'Inject Vite Assets into app.py'
+      # 3. Build the Vite React Application
+      - name: Vite Build
+        run: |
+          cd react
+          npm install
+          npm run build
 
-    # 4. Setup Python for Posit Connect Deployment
-    - task: UsePythonVersion@0
-      inputs:
-        versionSpec: '3.9'
-      displayName: 'Install Python'
+      # 4. Atomic Move and Filename Injection
+      - name: Inject Vite Assets into app.py
+        run: |
+          # Ensure the target assets folder exists and is clean
+          mkdir -p www/assets
+          rm -rf www/assets/*
+          
+          # Move Vite build results from 'react/dist' to 'www'
+          cp -r react/dist/* www/
+          
+          # Extract the dynamic filenames for the JS and CSS bundles
+          JS_FILE=$(ls www/assets/index-*.js | xargs -n 1 basename)
+          CSS_FILE=$(ls www/assets/index-*.css | xargs -n 1 basename)
+          
+          echo "Found JS Bundle: $JS_FILE"
+          echo "Found CSS Bundle: $CSS_FILE"
+          
+          # Inject the real filenames into app.py
+          sed -i "s/REPLACE_ME_JS/$JS_FILE/g" app.py
+          sed -i "s/REPLACE_ME_CSS/$CSS_FILE/g" app.py
 
-    # 5. Generate Manifest and Deploy
-    - script: |
-        python -m pip install --upgrade pip
-        pip install rsconnect-python shiny
-        
-        # Generate the manifest.json (Connect needs this to see requirements.txt)
-        rsconnect write-manifest shiny . --entrypoint app:app
-        
-        # Deploy to your server
-        rsconnect deploy manifest manifest.json \
-          --server $(CONNECT_SERVER) \
-          --api-key $(CONNECT_API_KEY) \
-          --name "vite-shiny-app-athik" \
-          --title "React + Shiny Production"
-      displayName: 'Deploy to Posit Connect'
+      # 5. Setup Python for Deployment
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.9'
+
+      # 6. Generate Manifest and Deploy
+      - name: Deploy to Posit Connect
+        env:
+          # Use your hardcoded values here for now as we discussed
+          CONNECT_SERVER: "https://your-server-url.com"
+          CONNECT_API_KEY: "your-api-key-here"
+        run: |
+          python -m pip install --upgrade pip
+          pip install rsconnect-python shiny
+          
+          # Generate the manifest.json
+          rsconnect write-manifest shiny . --entrypoint app:app
+          
+          # Deploy
+          rsconnect deploy manifest manifest.json \
+            --server $CONNECT_SERVER \
+            --api-key $CONNECT_API_KEY \
+            --name "vite-shiny-app-athik" \
+            --title "React + Shiny Production"
