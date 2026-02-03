@@ -1,0 +1,74 @@
+trigger:
+  - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+# Link to your Library variables (CONNECT_SERVER, CONNECT_API_KEY)
+variables:
+  - group: PositConnect 
+
+stages:
+- stage: BuildAndDeploy
+  displayName: 'Build and Deploy'
+  jobs:
+  - job: DeployJob
+    steps:
+    
+    # 1. Setup Node.js for the Vite React Frontend
+    - task: NodeTool@0
+      inputs:
+        versionSpec: '18.x'
+      displayName: 'Install Node.js'
+
+    # 2. Build the Vite React Application
+    - script: |
+        cd react
+        npm install
+        npm run build
+      displayName: 'Vite Build'
+
+    # 3. Atomic Move and Filename Injection
+    - script: |
+        # Ensure the target assets folder exists and is clean
+        mkdir -p www/assets
+        rm -rf www/assets/*
+        
+        # Move Vite build results from 'react/dist' to 'www'
+        cp -r react/dist/* www/
+        
+        # Extract the dynamic filenames for the JS and CSS bundles
+        # These look like index-xxxxxxxx.js
+        JS_FILE=$(ls www/assets/index-*.js | xargs -n 1 basename)
+        CSS_FILE=$(ls www/assets/index-*.css | xargs -n 1 basename)
+        
+        echo "Found JS Bundle: $JS_FILE"
+        echo "Found CSS Bundle: $CSS_FILE"
+        
+        # Inject the real filenames into app.py using Linux sed
+        # It replaces REPLACE_ME_JS and REPLACE_ME_CSS
+        sed -i "s/REPLACE_ME_JS/$JS_FILE/g" app.py
+        sed -i "s/REPLACE_ME_CSS/$CSS_FILE/g" app.py
+      displayName: 'Inject Vite Assets into app.py'
+
+    # 4. Setup Python for Posit Connect Deployment
+    - task: UsePythonVersion@0
+      inputs:
+        versionSpec: '3.9'
+      displayName: 'Install Python'
+
+    # 5. Generate Manifest and Deploy
+    - script: |
+        python -m pip install --upgrade pip
+        pip install rsconnect-python shiny
+        
+        # Generate the manifest.json (Connect needs this to see requirements.txt)
+        rsconnect write-manifest shiny . --entrypoint app:app
+        
+        # Deploy to your server
+        rsconnect deploy manifest manifest.json \
+          --server $(CONNECT_SERVER) \
+          --api-key $(CONNECT_API_KEY) \
+          --name "vite-shiny-app-athik" \
+          --title "React + Shiny Production"
+      displayName: 'Deploy to Posit Connect'
