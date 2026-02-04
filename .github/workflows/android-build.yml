@@ -1,0 +1,45 @@
+name: Build MLC Android Libs
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          submodules: 'recursive'
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install Dependencies
+        run: |
+          pip install mlc-llm torch
+          sudo apt-get update && sudo apt-get install -y cmake ninja-build
+
+      - name: Setup Rust
+        run: |
+          rustup target add aarch64-linux-android
+
+      - name: Setup Android NDK
+        uses: nandroid/setup-android-ndk@v1
+        with:
+          ndk-version: r26b # Match this to your local version if needed
+
+      - name: Build Gemma-2-2B Package
+        run: |
+          # Set required environment variables
+          export ANDROID_NDK=$ANDROID_NDK_HOME
+          export MLC_LLM_SOURCE_DIR=$(pwd)
+          
+          # Run the package command
+          mlc_llm package --model HF://mlc-ai/gemma-2-2b-it-q4f16_1-MLC --device android
+          
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: mlc-android-libs
+          path: dist/lib/mlc4j/output/
