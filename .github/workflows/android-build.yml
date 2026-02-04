@@ -15,11 +15,25 @@ jobs:
         with:
           python-version: '3.11'
 
+      - name: Maximize Build Space & Swap
+        run: |
+          # Create 8GB swap to prevent OOM crashes during Gemma-2 compilation
+          sudo fallocate -l 8G /swapfile
+          sudo chmod 600 /swapfile
+          sudo mkswap /swapfile
+          sudo swapon /swapfile
+          free -h
+
       - name: Install System Dependencies
         run: |
           sudo apt-get update
           sudo apt-get install -y cmake ninja-build
-          pip install mlc-llm torch
+          # Use the pre-release (nightly) wheels from the official MLC server
+          python -m pip install --pre -U -f https://mlc.ai/wheels \
+            mlc-llm-nightly-cpu \
+            mlc-ai-nightly-cpu \
+            torch \
+            numpy
 
       - name: Setup Rust
         run: |
@@ -27,18 +41,20 @@ jobs:
 
       - name: Locate and Export Android NDK
         run: |
-          # GitHub's ubuntu-latest has NDK pre-installed. 
-          # We just need to point MLC to it.
+          # Use the stable NDK version provided by the GitHub runner
+          # We use the ANDROID_HOME environment variable to find the path
           echo "ANDROID_NDK=$ANDROID_HOME/ndk-bundle" >> $GITHUB_ENV
           echo "MLC_LLM_SOURCE_DIR=$(pwd)" >> $GITHUB_ENV
 
       - name: Build Gemma-2-2B Package
         run: |
-          # Using the 4-bit quantized version for mobile efficiency
+          # This command compiles the model for Android GPU (OpenCL)
+          # even though we are running on a CPU runner.
           mlc_llm package --model HF://mlc-ai/gemma-2-2b-it-q4f16_1-MLC --device android
 
-      - name: Upload AI Soul Artifacts
+      - name: Upload AI Bundle
         uses: actions/upload-artifact@v4
         with:
           name: gemma-android-bundle
+          # This folder will contain the .a libraries and the .json config
           path: dist/bundle/
