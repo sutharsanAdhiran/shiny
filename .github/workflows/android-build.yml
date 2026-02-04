@@ -15,31 +15,30 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Dependencies
+      - name: Install System Dependencies
         run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake ninja-build
           pip install mlc-llm torch
-          sudo apt-get update && sudo apt-get install -y cmake ninja-build
 
       - name: Setup Rust
         run: |
           rustup target add aarch64-linux-android
 
-      - name: Setup Android NDK
-        uses: nandroid/setup-android-ndk@v1
-        with:
-          ndk-version: r26b # Match this to your local version if needed
+      - name: Locate and Export Android NDK
+        run: |
+          # GitHub's ubuntu-latest has NDK pre-installed. 
+          # We just need to point MLC to it.
+          echo "ANDROID_NDK=$ANDROID_HOME/ndk-bundle" >> $GITHUB_ENV
+          echo "MLC_LLM_SOURCE_DIR=$(pwd)" >> $GITHUB_ENV
 
       - name: Build Gemma-2-2B Package
         run: |
-          # Set required environment variables
-          export ANDROID_NDK=$ANDROID_NDK_HOME
-          export MLC_LLM_SOURCE_DIR=$(pwd)
-          
-          # Run the package command
+          # Using the 4-bit quantized version for mobile efficiency
           mlc_llm package --model HF://mlc-ai/gemma-2-2b-it-q4f16_1-MLC --device android
-          
-      - name: Upload Artifacts
+
+      - name: Upload AI Soul Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: mlc-android-libs
-          path: dist/lib/mlc4j/output/
+          name: gemma-android-bundle
+          path: dist/bundle/
