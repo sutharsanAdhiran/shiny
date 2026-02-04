@@ -6,8 +6,8 @@ app_ui = ui.tags.html(
         ui.tags.title("My React"),
         ui.tags.link(rel="icon", href="/vite.svg", type="image/svg+xml"),
         # PLACEHOLDERS BELOW
-        ui.tags.link(rel="stylesheet", href="assets/REPLACE_ME_CSS"),
-        ui.tags.script(type="module", src="assets/REPLACE_ME_JS"),
+        ui.tags.link(rel="stylesheet", href="assets/index-COcDBgFa.css"),
+        ui.tags.script(type="module", src="assets/index-j_k5bXI_.js"),
     ),
     ui.tags.body(
         ui.div(id="root")  # React mounts here
